@@ -3,12 +3,38 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from dataclasses import dataclass
 from typing import Callable
 
 
 class MediaUnavailable(RuntimeError):
     pass
+
+
+class _GlibMainContext:
+    def __init__(self, thread_factory=threading.Thread) -> None:
+        self._thread_factory = thread_factory
+        self._lock = threading.Lock()
+        self._loop = None
+        self._thread = None
+
+    def ensure(self, glib) -> None:
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            loop = glib.MainLoop()
+            thread = self._thread_factory(
+                target=loop.run,
+                name="local-remote-control-glib",
+                daemon=True,
+            )
+            self._loop = loop
+            self._thread = thread
+            thread.start()
+
+
+_glib_main_context = _GlibMainContext()
 
 
 def _complete_offer(promise, element, local_description_promise, on_offer: Callable[[str], None]) -> None:
@@ -97,10 +123,11 @@ class WebRtcDesktop:
             import gi
             gi.require_version("Gst", "1.0")
             gi.require_version("GstWebRTC", "1.0")
-            from gi.repository import Gst, GstWebRTC
+            from gi.repository import GLib, Gst, GstWebRTC
         except (ImportError, ValueError) as error:
             raise MediaUnavailable("GStreamer WebRTC bindings are unavailable") from error
         Gst.init(None)
+        _glib_main_context.ensure(GLib)
         description = _pipeline_description(self.encoder, self._display, self._fps)
         self._pipeline = Gst.parse_launch(description)
         self._webrtc = self._pipeline.get_by_name("sendrecv")
