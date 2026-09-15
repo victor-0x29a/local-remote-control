@@ -23,3 +23,14 @@ def test_page_has_local_assets_and_accessible_remote_controls() -> None:
     assert "autoplay" in video and "playsinline" in video
     assert status["aria-live"] == "polite"
     assert all(attrs.get("aria-label") or attrs.get("title") or (tag != "button") for tag, attrs in parser.tags)
+
+
+def test_browser_interface_uses_generic_remote_host_language() -> None:
+    static_dir = Path("src/local_remote_control/static")
+    interface = "\n".join(
+        (static_dir / filename).read_text(encoding="utf-8")
+        for filename in ("index.html", "app.js")
+    ).lower()
+
+    assert "sala" not in interface
+    assert "quarto" not in interface
