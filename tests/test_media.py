@@ -37,6 +37,13 @@ def test_offer_reply_stays_alive_until_its_borrowed_sdp_is_sent() -> None:
     assert sent == ["v=0\r\n"]
 
 
+def test_pipeline_converts_x11_frames_to_encoder_safe_i420() -> None:
+    description = media._pipeline_description(select_encoder({"x264enc"}), ":0", 30)
+
+    assert "videoconvert ! video/x-raw,format=I420 !" in description
+    assert "x264enc tune=zerolatency" in description
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
