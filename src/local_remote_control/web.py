@@ -35,7 +35,7 @@ DEPENDENCIES_KEY = web.AppKey("dependencies", Dependencies)
 
 
 def create_app(dependencies: Dependencies) -> web.Application:
-    app = web.Application(client_max_size=65_536)
+    app = web.Application(client_max_size=65_536, middlewares=[_security_headers])
     app[DEPENDENCIES_KEY] = dependencies
     app.router.add_get("/", _index)
     app.router.add_post("/api/login", _login)
@@ -52,6 +52,23 @@ def create_app(dependencies: Dependencies) -> web.Application:
     if static.exists():
         app.router.add_static("/static", static, append_version=True)
     return app
+
+
+@web.middleware
+async def _security_headers(request: web.Request, handler) -> web.StreamResponse:
+    try:
+        response = await handler(request)
+    except web.HTTPException as response:
+        pass
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; connect-src 'self' wss:; media-src 'self' blob:; "
+        "img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+    )
+    return response
 
 
 async def _index(request: web.Request) -> web.StreamResponse:
