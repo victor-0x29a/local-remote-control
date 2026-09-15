@@ -144,10 +144,10 @@ if [[ "$skip_ufw" != true ]] && command -v ufw >/dev/null && sudo ufw status | g
 fi
 
 if [[ "$needs_reboot" == true ]]; then
-  echo "Instalação concluída. Reinicie o notebook para ativar o Xorg."
+  echo "Instalação concluída. Reinicie o computador para ativar o Xorg."
 else
   systemctl --user restart local-remote-control.service
   echo "Instalação concluída e serviço iniciado."
 fi
-echo "Abra no notebook do quarto: https://${host_ip}:${port}"
+echo "Abra em outro dispositivo da LAN: https://${host_ip}:${port}"
 echo "Logs: journalctl --user -u local-remote-control -f"
