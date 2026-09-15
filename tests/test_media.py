@@ -71,6 +71,29 @@ def test_glib_main_context_dispatches_calls() -> None:
     assert glib.dispatched == 1
 
 
+def test_stop_invalidates_a_queued_encoder_fallback() -> None:
+    notices: list[str] = []
+    primary = select_encoder({"vaapih264enc"})
+    desktop = media.WebRtcDesktop(
+        primary,
+        on_offer=lambda _: None,
+        on_ice=lambda *_: None,
+        on_error=notices.append,
+        fallback=select_encoder({"x264enc"}),
+    )
+    teardown: list[str] = []
+    desktop._active = True
+    desktop._generation = 4
+    desktop._teardown_on_context = lambda: teardown.append("teardown")
+
+    desktop._stop_on_context()
+    desktop._handle_error_on_context(None, UnexpectedMessage(), 4)
+
+    assert teardown == ["teardown"]
+    assert desktop.encoder is primary
+    assert notices == []
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
@@ -136,3 +159,8 @@ class FakeThread:
 
     def is_alive(self) -> bool:
         return self.started
+
+
+class UnexpectedMessage:
+    def parse_error(self):
+        raise AssertionError("a stale pipeline message must be ignored")
