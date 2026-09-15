@@ -1,4 +1,5 @@
 import { keyMessage, pointerMessage, socketUrl } from './protocol.js';
+import { copyTerminalSelection, pasteIntoTerminal, terminalShortcut } from './terminal-ui.js';
 
 const loginView = document.querySelector('#login-view');
 const workspace = document.querySelector('#workspace');
@@ -181,8 +182,49 @@ function openTerminal() {
     terminalSocket.addEventListener('message', (event) => terminal.write(typeof event.data === 'string' ? event.data : new Uint8Array(event.data)));
     terminal.onResize(sendTerminalSize);
     terminal.onData((data) => terminalSocket.readyState === WebSocket.OPEN && terminalSocket.send(new TextEncoder().encode(data)));
+    terminal.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true;
+      const action = terminalShortcut(event);
+      if (!action) return true;
+      event.preventDefault();
+      if (action === 'copy') copyFromTerminal();
+      if (action === 'paste') pasteToTerminal();
+      return false;
+    });
     terminalSocket.addEventListener('open', () => { terminal.focus(); sendTerminalSize(); });
   }
+}
+
+async function copyFromTerminal() {
+  if (!terminal) return;
+  try {
+    const copied = await copyTerminalSelection(terminal, navigator.clipboard);
+    setStatus(copied ? 'Seleção do terminal copiada' : 'Selecione algum texto no terminal para copiar', !copied);
+  } catch {
+    const selection = terminal.getSelection();
+    if (!selection) {
+      setStatus('Selecione algum texto no terminal para copiar', true);
+      return;
+    }
+    clipboardFallback.hidden = false;
+    clipboardFallback.value = selection;
+    clipboardFallback.focus();
+    clipboardFallback.select();
+    setStatus('Pressione Ctrl+C para copiar a seleção do terminal', true);
+  }
+}
+
+async function pasteToTerminal() {
+  if (!terminal) return;
+  try {
+    const pasted = await pasteIntoTerminal(terminal, navigator.clipboard);
+    setStatus(pasted ? 'Texto colado no terminal' : 'A área de transferência está vazia', !pasted);
+  } catch {
+    const text = window.prompt('Cole o texto que deseja enviar ao terminal:');
+    if (text) terminal.paste(text);
+    setStatus(text ? 'Texto colado no terminal' : 'Colagem cancelada', !text);
+  }
+  terminal.focus();
 }
 
 function sendTerminalSize() {
@@ -190,6 +232,8 @@ function sendTerminalSize() {
 }
 
 document.querySelector('#terminal-button').addEventListener('click', () => terminalPanel.hidden ? openTerminal() : terminalPanel.hidden = true);
+document.querySelector('#terminal-copy').addEventListener('click', copyFromTerminal);
+document.querySelector('#terminal-paste').addEventListener('click', pasteToTerminal);
 document.querySelector('#terminal-close').addEventListener('click', () => terminalPanel.hidden = true);
 document.querySelector('#fullscreen-button').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : workspace.requestFullscreen());
 document.querySelector('#disconnect-button').addEventListener('click', disconnect);
