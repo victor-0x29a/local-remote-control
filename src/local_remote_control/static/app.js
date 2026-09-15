@@ -273,6 +273,18 @@ function sendTerminalSize() {
 document.querySelector('#terminal-button').addEventListener('click', () => terminalPanel.hidden ? openTerminal() : terminalPanel.hidden = true);
 document.querySelector('#terminal-copy').addEventListener('click', copyFromTerminal);
 document.querySelector('#terminal-paste').addEventListener('click', pasteToTerminal);
+document.querySelector('#terminal-clear').addEventListener('click', () => {
+  terminal?.clear();
+  terminal?.focus();
+  setStatus('Visualização do terminal limpa');
+});
+document.querySelector('#terminal-expand').addEventListener('click', (event) => {
+  const expanded = terminalPanel.classList.toggle('expanded');
+  event.currentTarget.textContent = expanded ? 'Reduzir' : 'Expandir';
+  event.currentTarget.setAttribute('aria-pressed', String(expanded));
+  event.currentTarget.setAttribute('aria-label', expanded ? 'Reduzir terminal' : 'Expandir terminal');
+  requestAnimationFrame(() => { fitTerminal(); terminal?.focus(); });
+});
 document.querySelector('#terminal-close').addEventListener('click', () => terminalPanel.hidden = true);
 document.querySelector('#fullscreen-button').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : workspace.requestFullscreen());
 document.querySelector('#disconnect-button').addEventListener('click', disconnect);
