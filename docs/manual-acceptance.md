@@ -9,7 +9,7 @@ Registre versão do Ubuntu, GPU, sessão, navegador e resultado de cada item.
 - [ ] Wayland é detectado, a troca para Xorg é confirmada e o backup do GDM existe.
 - [ ] Após reiniciar, `echo "$XDG_SESSION_TYPE"` retorna `x11`.
 - [ ] Login automático abre a área de trabalho e o serviço fica `active (running)`.
-- [ ] A URL impressa abre a partir de outro notebook na mesma LAN.
+- [ ] A URL impressa abre a partir de outro dispositivo na mesma LAN.
 
 ## Segurança
 
@@ -32,8 +32,8 @@ Registre versão do Ubuntu, GPU, sessão, navegador e resultado de cada item.
 
 ## Clipboard e terminal
 
-- [ ] Texto copiado na sala pode ser trazido ao quarto.
-- [ ] Texto copiado no quarto pode ser enviado e colado na sala.
+- [ ] Texto copiado no host remoto pode ser recebido no dispositivo cliente.
+- [ ] Texto copiado no dispositivo cliente pode ser enviado e colado no host remoto.
 - [ ] Clipboard negado pelo navegador apresenta a caixa de fallback.
 - [ ] Conteúdo maior que 1 MiB é rejeitado sem derrubar a sessão.
 - [ ] Terminal abre com o usuário do login automático.
