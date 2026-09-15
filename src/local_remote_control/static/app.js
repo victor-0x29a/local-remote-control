@@ -56,7 +56,7 @@ async function api(path, options = {}) {
 }
 
 async function connect() {
-  setStatus('Conectando ao notebook…');
+  setStatus('Conectando ao computador remoto…');
   controlSocket = new WebSocket(socketUrl('/ws/control', lease));
   controlSocket.addEventListener('open', () => {
     setStatus('Conectado — clique na tela para controlar');
@@ -146,7 +146,7 @@ function connectClipboard() {
     const message = JSON.parse(event.data);
     if (message.type === 'clipboard') {
       latestHostClipboard = message.text;
-      setStatus('Texto copiado na sala — use o botão Colar para trazê-lo');
+      setStatus('Texto copiado no host remoto — use o botão Colar para recebê-lo');
     }
   });
 }
@@ -156,11 +156,11 @@ document.querySelector('#clipboard-button').addEventListener('click', async () =
     if (latestHostClipboard) {
       await navigator.clipboard.writeText(latestHostClipboard);
       latestHostClipboard = '';
-      setStatus('Texto da sala copiado para este notebook');
+      setStatus('Texto remoto copiado para este dispositivo');
     } else {
       const text = await navigator.clipboard.readText();
       clipboardSocket.send(JSON.stringify({ type: 'clipboard', revision: crypto.randomUUID(), text }));
-      setStatus('Clipboard enviado ao notebook da sala');
+      setStatus('Clipboard enviado ao host remoto');
     }
   } catch {
     clipboardFallback.hidden = false;

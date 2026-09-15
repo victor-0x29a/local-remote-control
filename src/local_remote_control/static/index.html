@@ -13,19 +13,19 @@
     <section id="login-view" class="login-card">
       <div class="brand-mark">LR</div>
       <p class="eyebrow">ACESSO LOCAL SEGURO</p>
-      <h1>Notebook da sala</h1>
+      <h1>Computador remoto</h1>
       <p class="muted">Controle sua sessão Ubuntu sem sair da rede local.</p>
       <form id="login-form">
         <label for="password">Senha do aplicativo</label>
         <input id="password" type="password" autocomplete="current-password" required autofocus>
-        <button type="submit" aria-label="Entrar no notebook remoto">Conectar</button>
+        <button type="submit" aria-label="Entrar no computador remoto">Conectar</button>
       </form>
       <p id="login-error" class="error" role="alert"></p>
     </section>
 
     <section id="workspace" class="workspace" hidden>
       <header class="toolbar">
-        <div class="identity"><span class="pulse"></span><strong>Sala</strong></div>
+        <div class="identity"><span class="pulse"></span><strong>Host remoto</strong></div>
         <p id="status" aria-live="polite">Preparando conexão…</p>
         <nav>
           <button id="clipboard-button" type="button" title="Enviar área de transferência" aria-label="Enviar área de transferência">Colar</button>
@@ -36,11 +36,11 @@
       </header>
       <div id="desktop" class="desktop" tabindex="0" aria-label="Tela remota; clique para capturar o teclado">
         <video id="remote-video" autoplay playsinline></video>
-        <div id="empty-state">Aguardando vídeo do notebook…</div>
+        <div id="empty-state">Aguardando vídeo remoto…</div>
         <div class="hint">Ctrl + Alt + Shift libera o teclado</div>
       </div>
       <section id="terminal-panel" class="terminal-panel" aria-label="Terminal remoto" hidden>
-        <div class="terminal-title"><span>Terminal — usuário da sala</span><button id="terminal-close" type="button" aria-label="Fechar terminal">×</button></div>
+        <div class="terminal-title"><span>Terminal — sessão remota</span><button id="terminal-close" type="button" aria-label="Fechar terminal">×</button></div>
         <div id="terminal"></div>
       </section>
     </section>
