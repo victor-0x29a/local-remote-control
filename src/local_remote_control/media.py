@@ -32,6 +32,12 @@ def select_encoder(available: set[str], bitrate_kbps: int = 8_000, fps: int = 30
     raise MediaUnavailable("no supported H.264 encoder is installed")
 
 
+def fallback_encoder(primary: Encoder, available: set[str], bitrate_kbps: int = 8_000, fps: int = 30) -> Encoder | None:
+    if primary.hardware and "x264enc" in available:
+        return select_encoder({"x264enc"}, bitrate_kbps, fps)
+    return None
+
+
 def probe_encoders() -> set[str]:
     try:
         import gi
@@ -53,6 +59,7 @@ class WebRtcDesktop:
         on_ice: Callable[[int, str], None],
         on_error: Callable[[str], None],
         *,
+        fallback: Encoder | None = None,
         display: str = ":0",
         fps: int = 30,
     ) -> None:
@@ -60,6 +67,8 @@ class WebRtcDesktop:
         self._on_offer = on_offer
         self._on_ice = on_ice
         self._on_error = on_error
+        self._fallback = fallback
+        self._fallback_used = False
         self._display = display
         self._fps = fps
         self._pipeline = None
@@ -88,8 +97,20 @@ class WebRtcDesktop:
         self._webrtc.connect("on-ice-candidate", lambda _, index, candidate: self._on_ice(index, candidate))
         bus = self._pipeline.get_bus()
         bus.add_signal_watch()
-        bus.connect("message::error", lambda _, message: self._on_error(message.parse_error()[0].message))
+        bus.connect("message::error", self._handle_error)
         self._pipeline.set_state(Gst.State.PLAYING)
+
+    def _handle_error(self, _, message) -> None:
+        error = message.parse_error()[0].message
+        if self._fallback is not None and not self._fallback_used:
+            self._fallback_used = True
+            failed = self.encoder.name
+            self.stop()
+            self.encoder = self._fallback
+            self._on_error(f"encoder {failed} falhou; alternando para {self.encoder.name}")
+            self.start()
+            return
+        self._on_error(error)
 
     def _create_offer(self, element) -> None:
         from gi.repository import Gst, GstWebRTC

@@ -15,7 +15,7 @@ from .clipboard import xclip_bridge
 from .config import Settings
 from .input import InputAdapter, run_x11_command
 from .lease import ControllerLease
-from .media import WebRtcDesktop, probe_encoders, select_encoder
+from .media import WebRtcDesktop, fallback_encoder, probe_encoders, select_encoder
 from .security import AuthManager
 from .web import Dependencies, create_app
 
@@ -49,8 +49,10 @@ def build_app(settings: Settings) -> web.Application:
         await clipboard.write(text, "keyboard")
         await runner("xdotool", "key", "ctrl+v")
 
-    encoder = select_encoder(probe_encoders())
-    media_factory = functools.partial(WebRtcDesktop, encoder, display=settings.display)
+    available_encoders = probe_encoders()
+    encoder = select_encoder(available_encoders)
+    fallback = fallback_encoder(encoder, available_encoders)
+    media_factory = functools.partial(WebRtcDesktop, encoder, fallback=fallback, display=settings.display)
     dependencies = Dependencies(
         settings=settings,
         auth=AuthManager(settings.password_hash, settings.session_idle_seconds),
