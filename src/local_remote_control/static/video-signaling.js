@@ -33,7 +33,9 @@ export class VideoNegotiator {
     const peer = this.createPeer();
     this.peer = peer;
     this.generation = generation;
-    peer.addEventListener('track', this.onTrack);
+    peer.addEventListener('track', (event) => {
+      if (this.peer === peer && this.generation === generation) this.onTrack(event);
+    });
     peer.addEventListener('icecandidate', (event) => {
       if (!event.candidate || this.peer !== peer || this.generation !== generation) return;
       this.send({
