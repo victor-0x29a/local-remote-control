@@ -34,3 +34,22 @@ def test_browser_interface_uses_generic_remote_host_language() -> None:
 
     assert "sala" not in interface
     assert "quarto" not in interface
+
+
+def test_terminal_exposes_clipboard_and_view_controls() -> None:
+    html = Path("src/local_remote_control/static/index.html").read_text(encoding="utf-8")
+    parser = Tags()
+    parser.feed(html)
+    button_ids = {
+        attrs.get("id")
+        for tag, attrs in parser.tags
+        if tag == "button"
+    }
+
+    assert {
+        "terminal-copy",
+        "terminal-paste",
+        "terminal-clear",
+        "terminal-expand",
+        "terminal-close",
+    } <= button_ids
