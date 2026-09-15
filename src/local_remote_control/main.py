@@ -45,8 +45,9 @@ def build_app(settings: Settings) -> web.Application:
     async def runner(*args: str) -> None:
         await run_x11_command(*args, display=settings.display)
 
-    def paste(text: str) -> None:
-        asyncio.create_task(clipboard.write(text, "keyboard"))
+    async def paste(text: str) -> None:
+        await clipboard.write(text, "keyboard")
+        await runner("xdotool", "key", "ctrl+v")
 
     encoder = select_encoder(probe_encoders())
     media_factory = functools.partial(WebRtcDesktop, encoder, display=settings.display)

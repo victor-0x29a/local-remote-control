@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 from collections.abc import Awaitable, Callable
 
@@ -55,7 +56,9 @@ class InputAdapter:
                 chord = "+".join([*(_MODIFIERS[item] for item in event.modifiers), key])
                 await self._runner("xdotool", "keydown" if event.pressed else "keyup", chord)
             elif isinstance(event, TextInput):
-                self._paste_text(event.text)
+                result = self._paste_text(event.text)
+                if inspect.isawaitable(result):
+                    await result
 
 
 def _key_name(code: str) -> str:
