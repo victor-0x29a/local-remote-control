@@ -22,9 +22,6 @@ _SPECIAL_KEYS = {
     "ShiftLeft": "Shift_L", "ShiftRight": "Shift_R", "AltLeft": "Alt_L", "AltRight": "Alt_R",
     "MetaLeft": "Super_L", "MetaRight": "Super_R",
 }
-_MODIFIERS = {"Alt": "alt", "Control": "ctrl", "Meta": "super", "Shift": "shift"}
-
-
 class InputAdapter:
     def __init__(
         self,
@@ -53,8 +50,7 @@ class InputAdapter:
                     await self._runner(*arguments)
             elif isinstance(event, KeyEvent):
                 key = _key_name(event.code)
-                chord = "+".join([*(_MODIFIERS[item] for item in event.modifiers), key])
-                await self._runner("xdotool", "keydown" if event.pressed else "keyup", chord)
+                await self._runner("xdotool", "keydown" if event.pressed else "keyup", key)
             elif isinstance(event, TextInput):
                 result = self._paste_text(event.text)
                 if inspect.isawaitable(result):
