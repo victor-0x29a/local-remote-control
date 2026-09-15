@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_service_runs_as_desktop_user_with_restart_and_hardening() -> None:
-    parser = configparser.ConfigParser(interpolation=None)
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
     parser.read("packaging/local-remote-control.service")
     assert parser["Unit"]["After"] == "graphical-session.target"
     assert parser["Service"]["Restart"] == "on-failure"
