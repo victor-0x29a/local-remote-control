@@ -31,9 +31,12 @@ class Dependencies:
     terminal_factory: Callable[..., Any] = PtySession.start
 
 
+DEPENDENCIES_KEY = web.AppKey("dependencies", Dependencies)
+
+
 def create_app(dependencies: Dependencies) -> web.Application:
     app = web.Application(client_max_size=65_536)
-    app["dependencies"] = dependencies
+    app[DEPENDENCIES_KEY] = dependencies
     app.router.add_get("/", _index)
     app.router.add_post("/api/login", _login)
     app.router.add_post("/api/logout", _logout)
@@ -216,7 +219,7 @@ async def _health(request: web.Request) -> web.Response:
 
 
 def _deps(request: web.Request) -> Dependencies:
-    return request.app["dependencies"]
+    return request.app[DEPENDENCIES_KEY]
 
 
 def _session(request: web.Request) -> Session | None:
