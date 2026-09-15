@@ -58,8 +58,8 @@ def create_app(dependencies: Dependencies) -> web.Application:
 async def _security_headers(request: web.Request, handler) -> web.StreamResponse:
     try:
         response = await handler(request)
-    except web.HTTPException as response:
-        pass
+    except web.HTTPException as error:
+        response = error
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
