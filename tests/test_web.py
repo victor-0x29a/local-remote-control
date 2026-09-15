@@ -35,8 +35,12 @@ async def test_wrong_password_and_private_health_response() -> None:
     client = await client_for_app()
     try:
         assert (await client.post("/api/login", json={"password": "wrong"})).status == 401
-        health = await (await client.get("/healthz")).json()
+        response = await client.get("/healthz")
+        health = await response.json()
         assert health == {"ok": True, "authenticated": False}
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert "default-src 'self'" in response.headers["Content-Security-Policy"]
     finally:
         await client.close()
 
