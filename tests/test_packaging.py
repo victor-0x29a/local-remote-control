@@ -1,0 +1,19 @@
+import configparser
+import subprocess
+from pathlib import Path
+
+
+def test_service_runs_as_desktop_user_with_restart_and_hardening() -> None:
+    parser = configparser.ConfigParser(interpolation=None)
+    parser.read("packaging/local-remote-control.service")
+    assert parser["Unit"]["After"] == "graphical-session.target"
+    assert parser["Service"]["Restart"] == "on-failure"
+    assert parser["Service"]["NoNewPrivileges"] == "true"
+    assert "User" not in parser["Service"]
+
+
+def test_host_scripts_offer_help_without_changing_the_machine() -> None:
+    for script in ("install.sh", "uninstall.sh", "diagnose.sh"):
+        result = subprocess.run(["bash", f"scripts/{script}", "--help"], capture_output=True, text=True, check=False)
+        assert result.returncode == 0, result.stderr
+        assert "Uso:" in result.stdout
