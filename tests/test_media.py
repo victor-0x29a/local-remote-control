@@ -62,6 +62,15 @@ def test_glib_main_context_starts_one_daemon_thread() -> None:
     assert threads[0].started
 
 
+def test_glib_main_context_dispatches_calls() -> None:
+    context = media._GlibMainContext(thread_factory=FakeThread)
+    glib = FakeGlib([])
+    context.ensure(glib)
+
+    assert context.call(lambda: "dispatched") == "dispatched"
+    assert glib.dispatched == 1
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
@@ -103,11 +112,16 @@ class FakeMainLoop:
 class FakeGlib:
     def __init__(self, loops: list[FakeMainLoop]) -> None:
         self._loops = loops
+        self.dispatched = 0
 
     def MainLoop(self) -> FakeMainLoop:
         loop = FakeMainLoop()
         self._loops.append(loop)
         return loop
+
+    def idle_add(self, callback):
+        self.dispatched += 1
+        callback()
 
 
 class FakeThread:
