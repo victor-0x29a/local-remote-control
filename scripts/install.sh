@@ -4,16 +4,27 @@ set -Eeuo pipefail
 usage() {
   cat <<'EOF'
 Uso: ./scripts/install.sh [--port PORTA] [--bind ENDEREÇO] [--yes-xorg] [--skip-ufw]
+     ./scripts/install.sh --print-dependencies
 
 Instala o Local Remote Control para o usuário atual no Ubuntu.
 Execute como usuário normal; o script pedirá sudo somente para pacotes e GDM.
 EOF
 }
 
+dependencies=(
+  python3 python3-venv python3-pip python3-gi
+  gir1.2-gstreamer-1.0 gir1.2-gst-plugins-bad-1.0
+  gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-plugins-base
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+  gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-nice
+  xdotool xclip openssl
+)
+
 port=8443
 bind_address=0.0.0.0
 yes_xorg=false
 skip_ufw=false
+print_dependencies=false
 while (($#)); do
   case "$1" in
     --help|-h) usage; exit 0 ;;
@@ -21,9 +32,15 @@ while (($#)); do
     --bind) bind_address="${2:?informe o endereço}"; shift 2 ;;
     --yes-xorg) yes_xorg=true; shift ;;
     --skip-ufw) skip_ufw=true; shift ;;
+    --print-dependencies) print_dependencies=true; shift ;;
     *) echo "Opção desconhecida: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+if [[ "$print_dependencies" == true ]]; then
+  printf '%s\n' "${dependencies[@]}"
+  exit 0
+fi
 
 if [[ ! "$port" =~ ^[0-9]+$ ]] || ((port < 1 || port > 65535)); then
   echo "Porta inválida: $port" >&2
@@ -52,13 +69,7 @@ config_file="${config_dir}/config.env"
 
 echo "Instalando dependências nativas…"
 sudo apt-get update
-sudo apt-get install -y \
-  python3 python3-venv python3-pip python3-gi \
-  gir1.2-gstreamer-1.0 gir1.2-gst-plugins-bad-1.0 \
-  gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly gstreamer1.0-libav \
-  xdotool xclip openssl
+sudo apt-get install -y "${dependencies[@]}"
 
 umask 077
 mkdir -p "$app_dir" "$config_dir" "$state_dir" "$unit_dir"
