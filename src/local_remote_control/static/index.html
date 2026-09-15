@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Local Remote Control</title>
+  <link rel="stylesheet" href="/static/vendor/xterm.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <section id="login-view" class="login-card">
+      <div class="brand-mark">LR</div>
+      <p class="eyebrow">ACESSO LOCAL SEGURO</p>
+      <h1>Notebook da sala</h1>
+      <p class="muted">Controle sua sessão Ubuntu sem sair da rede local.</p>
+      <form id="login-form">
+        <label for="password">Senha do aplicativo</label>
+        <input id="password" type="password" autocomplete="current-password" required autofocus>
+        <button type="submit" aria-label="Entrar no notebook remoto">Conectar</button>
+      </form>
+      <p id="login-error" class="error" role="alert"></p>
+    </section>
+
+    <section id="workspace" class="workspace" hidden>
+      <header class="toolbar">
+        <div class="identity"><span class="pulse"></span><strong>Sala</strong></div>
+        <p id="status" aria-live="polite">Preparando conexão…</p>
+        <nav>
+          <button id="clipboard-button" type="button" title="Enviar área de transferência" aria-label="Enviar área de transferência">Colar</button>
+          <button id="terminal-button" type="button" title="Abrir ou fechar terminal" aria-label="Abrir ou fechar terminal">Terminal</button>
+          <button id="fullscreen-button" type="button" title="Alternar tela cheia" aria-label="Alternar tela cheia">Tela cheia</button>
+          <button id="disconnect-button" class="danger" type="button" title="Desconectar" aria-label="Desconectar">Sair</button>
+        </nav>
+      </header>
+      <div id="desktop" class="desktop" tabindex="0" aria-label="Tela remota; clique para capturar o teclado">
+        <video id="remote-video" autoplay playsinline></video>
+        <div id="empty-state">Aguardando vídeo do notebook…</div>
+        <div class="hint">Ctrl + Alt + Shift libera o teclado</div>
+      </div>
+      <section id="terminal-panel" class="terminal-panel" aria-label="Terminal remoto" hidden>
+        <div class="terminal-title"><span>Terminal — usuário da sala</span><button id="terminal-close" type="button" aria-label="Fechar terminal">×</button></div>
+        <div id="terminal"></div>
+      </section>
+    </section>
+  </main>
+  <textarea id="clipboard-fallback" class="clipboard-fallback" aria-label="Texto para enviar ao clipboard" hidden></textarea>
+  <script src="/static/vendor/xterm.js"></script>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
