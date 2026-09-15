@@ -1,5 +1,5 @@
 import { keyMessage, pointerMessage, socketUrl } from './protocol.js';
-import { copyTerminalSelection, pasteIntoTerminal, terminalShortcut } from './terminal-ui.js';
+import { copyTerminalSelection, pasteIntoTerminal, terminalDimensions, terminalShortcut } from './terminal-ui.js';
 
 const loginView = document.querySelector('#login-view');
 const workspace = document.querySelector('#workspace');
@@ -11,6 +11,7 @@ const desktop = document.querySelector('#desktop');
 const video = document.querySelector('#remote-video');
 const emptyState = document.querySelector('#empty-state');
 const terminalPanel = document.querySelector('#terminal-panel');
+const terminalElement = document.querySelector('#terminal');
 const clipboardFallback = document.querySelector('#clipboard-fallback');
 
 let csrf = '';
@@ -21,6 +22,7 @@ let terminalSocket;
 let clipboardSocket;
 let peer;
 let terminal;
+let terminalResizeObserver;
 let keyboardCaptured = false;
 let latestHostClipboard = '';
 let pointerFrame = 0;
@@ -175,8 +177,21 @@ document.querySelector('#clipboard-button').addEventListener('click', async () =
 function openTerminal() {
   terminalPanel.hidden = false;
   if (!terminal && window.Terminal) {
-    terminal = new window.Terminal({ cursorBlink: true, convertEol: true, theme: { background: '#081018', foreground: '#edf4ff' } });
-    terminal.open(document.querySelector('#terminal'));
+    terminal = new window.Terminal({
+      cursorBlink: true,
+      convertEol: true,
+      fontFamily: '"Ubuntu Mono", "DejaVu Sans Mono", ui-monospace, monospace',
+      fontSize: 14,
+      letterSpacing: 0.2,
+      lineHeight: 1.2,
+      scrollback: 10000,
+      scrollOnUserInput: true,
+      smoothScrollDuration: 100,
+      theme: { background: '#081018', foreground: '#edf4ff' },
+    });
+    terminal.open(terminalElement);
+    terminalResizeObserver = new ResizeObserver(() => fitTerminal());
+    terminalResizeObserver.observe(terminalElement);
     terminalSocket = new WebSocket(socketUrl('/ws/terminal', lease));
     terminalSocket.binaryType = 'arraybuffer';
     terminalSocket.addEventListener('message', (event) => terminal.write(typeof event.data === 'string' ? event.data : new Uint8Array(event.data)));
@@ -191,8 +206,32 @@ function openTerminal() {
       if (action === 'paste') pasteToTerminal();
       return false;
     });
-    terminalSocket.addEventListener('open', () => { terminal.focus(); sendTerminalSize(); });
+    terminalSocket.addEventListener('open', () => { fitTerminal(); terminal.focus(); sendTerminalSize(); });
   }
+  requestAnimationFrame(fitTerminal);
+}
+
+function fitTerminal() {
+  if (!terminal || terminalPanel.hidden) return;
+  const bounds = terminalElement.getBoundingClientRect();
+  if (bounds.width < 20 || bounds.height < 20) return;
+  const style = getComputedStyle(terminalElement);
+  const measure = document.createElement('span');
+  measure.className = 'terminal-cell-measure';
+  measure.textContent = 'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW';
+  measure.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:"Ubuntu Mono","DejaVu Sans Mono",ui-monospace,monospace;font-size:14px;letter-spacing:.2px;line-height:1.2';
+  terminalElement.appendChild(measure);
+  const measureBounds = measure.getBoundingClientRect();
+  measure.remove();
+  const size = terminalDimensions({
+    width: bounds.width,
+    height: bounds.height,
+    horizontalPadding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight),
+    verticalPadding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
+    cellWidth: measureBounds.width / 32,
+    cellHeight: measureBounds.height,
+  });
+  if (size.cols !== terminal.cols || size.rows !== terminal.rows) terminal.resize(size.cols, size.rows);
 }
 
 async function copyFromTerminal() {
