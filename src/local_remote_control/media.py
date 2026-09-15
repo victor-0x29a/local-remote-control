@@ -16,8 +16,10 @@ class _GlibMainContext:
     def __init__(self, thread_factory=threading.Thread) -> None:
         self._thread_factory = thread_factory
         self._lock = threading.Lock()
+        self._glib = None
         self._loop = None
         self._thread = None
+        self._thread_ident = None
 
     def ensure(self, glib) -> None:
         with self._lock:
@@ -25,13 +27,44 @@ class _GlibMainContext:
                 return
             loop = glib.MainLoop()
             thread = self._thread_factory(
-                target=loop.run,
+                target=self._run,
                 name="local-remote-control-glib",
                 daemon=True,
             )
+            self._glib = glib
             self._loop = loop
             self._thread = thread
             thread.start()
+
+    def _run(self) -> None:
+        self._thread_ident = threading.get_ident()
+        try:
+            self._loop.run()
+        finally:
+            self._thread_ident = None
+
+    def call(self, callback):
+        if threading.get_ident() == self._thread_ident:
+            return callback()
+        completed = threading.Event()
+        outcome = []
+
+        def invoke() -> bool:
+            try:
+                outcome.append((True, callback()))
+            except BaseException as error:
+                outcome.append((False, error))
+            finally:
+                completed.set()
+            return False
+
+        self._glib.idle_add(invoke)
+        if not completed.wait(timeout=10):
+            raise MediaUnavailable("GLib main context did not respond")
+        succeeded, value = outcome[0]
+        if not succeeded:
+            raise value
+        return value
 
 
 _glib_main_context = _GlibMainContext()
