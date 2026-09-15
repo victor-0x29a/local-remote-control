@@ -59,7 +59,13 @@ async def _security_headers(request: web.Request, handler) -> web.StreamResponse
     try:
         response = await handler(request)
     except web.HTTPException as error:
-        response = error
+        _apply_security_headers(error)
+        raise
+    _apply_security_headers(response)
+    return response
+
+
+def _apply_security_headers(response: web.StreamResponse) -> None:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -68,7 +74,6 @@ async def _security_headers(request: web.Request, handler) -> web.StreamResponse
         "default-src 'self'; connect-src 'self' wss:; media-src 'self' blob:; "
         "img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     )
-    return response
 
 
 async def _index(request: web.Request) -> web.StreamResponse:
