@@ -10,6 +10,7 @@ def test_service_runs_as_desktop_user_with_restart_and_hardening() -> None:
     assert parser["Service"]["Restart"] == "on-failure"
     assert parser["Service"]["NoNewPrivileges"] == "true"
     assert "User" not in parser["Service"]
+    assert parser["Service"].get("ProtectHome", "false") == "false"
 
 
 def test_host_scripts_offer_help_without_changing_the_machine() -> None:
