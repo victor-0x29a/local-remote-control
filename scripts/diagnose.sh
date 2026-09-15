@@ -20,6 +20,14 @@ echo "Local Remote Control — diagnóstico"
 echo "Sessão: ${XDG_SESSION_TYPE:-desconhecida}; DISPLAY=${DISPLAY:-não definido}"
 echo "Python: $(python3 --version 2>&1)"
 echo "GStreamer: $(gst-launch-1.0 --version 2>/dev/null | head -n1 || echo ausente)"
+echo "Componentes WebRTC:"
+for component in webrtcbin nicesrc nicesink; do
+  if gst-inspect-1.0 "$component" >/dev/null 2>&1; then
+    echo "  $component: disponível"
+  else
+    echo "  $component: ausente"
+  fi
+done
 echo "Encoders H.264 disponíveis:"
 for encoder in nvh264enc vah264enc vaapih264enc x264enc; do
   gst-inspect-1.0 "$encoder" >/dev/null 2>&1 && echo "  - $encoder"
