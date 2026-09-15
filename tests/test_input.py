@@ -25,7 +25,7 @@ async def test_scales_pointer_and_translates_controls() -> None:
         ("xdotool", "mousemove", "960", "1079"),
         ("xdotool", "mousedown", "1"),
         ("xdotool", "click", "5", "click", "5"),
-        ("xdotool", "keydown", "ctrl+a"),
+        ("xdotool", "keydown", "a"),
     ]
     assert pasted == ["hello; $(unsafe)"]
 
@@ -39,3 +39,18 @@ async def test_waits_for_async_clipboard_paste_before_returning() -> None:
     adapter = InputAdapter(RecordingRunner(), lambda: (1, 1), paste)
     await adapter.apply(TextInput("clipboard"))
     assert order == ["clipboard"]
+
+
+async def test_modifier_key_is_not_duplicated_into_a_chord() -> None:
+    runner = RecordingRunner()
+    adapter = InputAdapter(runner, lambda: (1, 1), lambda text: None)
+    await adapter.apply(KeyEvent("ControlLeft", True, ("Control",)))
+    await adapter.apply(KeyEvent("KeyC", True, ("Control",)))
+    await adapter.apply(KeyEvent("KeyC", False, ("Control",)))
+    await adapter.apply(KeyEvent("ControlLeft", False, ()))
+    assert runner.calls == [
+        ("xdotool", "keydown", "Control_L"),
+        ("xdotool", "keydown", "c"),
+        ("xdotool", "keyup", "c"),
+        ("xdotool", "keyup", "Control_L"),
+    ]
