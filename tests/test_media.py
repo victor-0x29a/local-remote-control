@@ -44,6 +44,23 @@ def test_pipeline_converts_x11_frames_to_encoder_safe_i420() -> None:
     assert "x264enc tune=zerolatency" in description
 
 
+def test_glib_main_context_starts_one_daemon_thread() -> None:
+    loops: list[FakeMainLoop] = []
+    threads: list[FakeThread] = []
+    context = media._GlibMainContext(
+        thread_factory=lambda **options: threads.append(FakeThread(**options)) or threads[-1]
+    )
+
+    context.ensure(FakeGlib(loops))
+    context.ensure(FakeGlib(loops))
+
+    assert len(loops) == 1
+    assert len(threads) == 1
+    assert threads[0].daemon is True
+    assert threads[0].name == "local-remote-control-glib"
+    assert threads[0].started
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
@@ -75,3 +92,32 @@ class RecordingWebRtcElement:
     def emit(self, signal: str, offer: BorrowedOffer, _promise: object) -> None:
         assert signal == "set-local-description"
         self.received_live_sdp = offer.sdp is not None
+
+
+class FakeMainLoop:
+    def run(self) -> None:
+        pass
+
+
+class FakeGlib:
+    def __init__(self, loops: list[FakeMainLoop]) -> None:
+        self._loops = loops
+
+    def MainLoop(self) -> FakeMainLoop:
+        loop = FakeMainLoop()
+        self._loops.append(loop)
+        return loop
+
+
+class FakeThread:
+    def __init__(self, *, target, name: str, daemon: bool) -> None:
+        self.target = target
+        self.name = name
+        self.daemon = daemon
+        self.started = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def is_alive(self) -> bool:
+        return self.started
