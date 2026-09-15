@@ -18,3 +18,15 @@ def test_host_scripts_offer_help_without_changing_the_machine() -> None:
         result = subprocess.run(["bash", f"scripts/{script}", "--help"], capture_output=True, text=True, check=False)
         assert result.returncode == 0, result.stderr
         assert "Uso:" in result.stdout
+
+
+def test_installer_declares_the_web_rtc_ice_transport_dependency() -> None:
+    result = subprocess.run(
+        ["bash", "scripts/install.sh", "--print-dependencies"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "gstreamer1.0-nice" in result.stdout.splitlines()
