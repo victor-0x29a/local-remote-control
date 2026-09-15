@@ -94,6 +94,55 @@ def test_stop_invalidates_a_queued_encoder_fallback() -> None:
     assert notices == []
 
 
+def test_current_encoder_error_switches_to_fallback_once() -> None:
+    notices: list[str] = []
+    fallback = select_encoder({"x264enc"})
+    desktop = media.WebRtcDesktop(
+        select_encoder({"vaapih264enc"}),
+        on_offer=lambda _: None,
+        on_ice=lambda *_: None,
+        on_error=notices.append,
+        fallback=fallback,
+    )
+    lifecycle: list[str] = []
+    desktop._active = True
+    desktop._generation = 2
+    desktop._teardown_on_context = lambda: lifecycle.append("teardown")
+    desktop._start_pipeline_on_context = lambda: lifecycle.append("start")
+
+    desktop._handle_error_on_context(None, ErrorMessage("hardware failure"), 2)
+
+    assert desktop.encoder is fallback
+    assert desktop._generation == 3
+    assert lifecycle == ["teardown", "start"]
+    assert notices == ["encoder vaapih264enc falhou; alternando para x264enc"]
+
+
+def test_pipeline_teardown_disconnects_handlers_and_bus_watch() -> None:
+    desktop = media.WebRtcDesktop(
+        select_encoder({"x264enc"}),
+        on_offer=lambda _: None,
+        on_ice=lambda *_: None,
+        on_error=lambda _: None,
+    )
+    pipeline = FakePipeline()
+    bus = FakeBus()
+    source = FakeSignalSource()
+    desktop._gst = FakeGst()
+    desktop._pipeline = pipeline
+    desktop._webrtc = source
+    desktop._bus = bus
+    desktop._signal_handlers = [(source, 7), (bus, 8)]
+
+    desktop._teardown_on_context()
+
+    assert source.disconnected == [7]
+    assert bus.disconnected == [8]
+    assert bus.watch_removed
+    assert pipeline.states == ["null"]
+    assert desktop._pipeline is desktop._webrtc is desktop._bus is None
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
@@ -164,3 +213,41 @@ class FakeThread:
 class UnexpectedMessage:
     def parse_error(self):
         raise AssertionError("a stale pipeline message must be ignored")
+
+
+class ErrorMessage:
+    def __init__(self, message: str) -> None:
+        self._message = message
+
+    def parse_error(self):
+        return type("NativeError", (), {"message": self._message})(), None
+
+
+class FakeSignalSource:
+    def __init__(self) -> None:
+        self.disconnected: list[int] = []
+
+    def disconnect(self, handler: int) -> None:
+        self.disconnected.append(handler)
+
+
+class FakeBus(FakeSignalSource):
+    def __init__(self) -> None:
+        super().__init__()
+        self.watch_removed = False
+
+    def remove_signal_watch(self) -> None:
+        self.watch_removed = True
+
+
+class FakePipeline:
+    def __init__(self) -> None:
+        self.states: list[str] = []
+
+    def set_state(self, state: str) -> None:
+        self.states.append(state)
+
+
+class FakeGst:
+    class State:
+        NULL = "null"
