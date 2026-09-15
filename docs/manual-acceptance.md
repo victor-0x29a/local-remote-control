@@ -38,6 +38,11 @@ Registre versão do Ubuntu, GPU, sessão, navegador e resultado de cada item.
 - [ ] Conteúdo maior que 1 MiB é rejeitado sem derrubar a sessão.
 - [ ] Terminal abre com o usuário do login automático.
 - [ ] Terminal recebe entrada, cores, redimensionamento e saída longa.
+- [ ] Seleção pode ser copiada pelo botão e por `Ctrl+Shift+C` sem alterar o comportamento de `Ctrl+C`.
+- [ ] Texto pode ser colado pelo botão e por `Ctrl+Shift+V`.
+- [ ] A roda percorre o histórico do terminal sem rolar a página.
+- [ ] Expandir, reduzir e redimensionar o navegador recalcula linhas e colunas do PTY.
+- [ ] `systemctl --user status` funciona dentro do terminal remoto.
 - [ ] Desconectar encerra o processo PTY.
 
 ## Operação
