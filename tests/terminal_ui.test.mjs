@@ -33,6 +33,10 @@ test('calculates terminal rows and columns from usable panel space', async () =>
     terminalDimensions({ width: 10, height: 10, horizontalPadding: 16, verticalPadding: 16, cellWidth: 10, cellHeight: 20 }),
     { cols: 2, rows: 2 },
   );
+  assert.deepEqual(
+    terminalDimensions({ width: 10000, height: 10000, horizontalPadding: 0, verticalPadding: 0, cellWidth: 5, cellHeight: 10 }),
+    { cols: 500, rows: 300 },
+  );
 });
 
 
