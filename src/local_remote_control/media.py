@@ -11,6 +11,13 @@ class MediaUnavailable(RuntimeError):
     pass
 
 
+def _complete_offer(promise, element, local_description_promise, on_offer: Callable[[str], None]) -> None:
+    reply = promise.get_reply()
+    offer = reply.get_value("offer")
+    element.emit("set-local-description", offer, local_description_promise)
+    on_offer(offer.sdp.as_text())
+
+
 @dataclass(frozen=True, slots=True)
 class Encoder:
     name: str
@@ -119,9 +126,7 @@ class WebRtcDesktop:
 
     def _offer_created(self, promise, element, _) -> None:
         from gi.repository import Gst, GstWebRTC
-        offer = promise.get_reply().get_value("offer")
-        element.emit("set-local-description", offer, Gst.Promise.new())
-        self._on_offer(offer.sdp.as_text())
+        _complete_offer(promise, element, Gst.Promise.new(), self._on_offer)
 
     def set_remote_answer(self, sdp: str) -> None:
         if self._webrtc is None:
