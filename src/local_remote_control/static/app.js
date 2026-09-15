@@ -1,5 +1,5 @@
 import { keyMessage, pointerMessage, socketUrl } from './protocol.js';
-import { copyTerminalSelection, pasteIntoTerminal, terminalDimensions, terminalShortcut } from './terminal-ui.js';
+import { copyTerminalSelection, pasteIntoTerminal, shouldForwardRemoteKey, terminalDimensions, terminalShortcut } from './terminal-ui.js';
 
 const loginView = document.querySelector('#login-view');
 const workspace = document.querySelector('#workspace');
@@ -130,7 +130,12 @@ function captureKey(event) {
     setStatus('Teclado liberado; clique na tela para recapturar');
     return;
   }
-  if (document.activeElement?.closest?.('.xterm')) return;
+  const activeElement = document.activeElement;
+  if (!shouldForwardRemoteKey({
+    keyboardCaptured,
+    insideTerminal: Boolean(activeElement?.closest?.('.xterm')),
+    editable: Boolean(activeElement?.matches?.('input, textarea, [contenteditable="true"]')),
+  })) return;
   event.preventDefault();
   sendControl(keyMessage(event));
 }

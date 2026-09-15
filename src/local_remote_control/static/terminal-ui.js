@@ -6,6 +6,10 @@ export function terminalShortcut(event) {
   return null;
 }
 
+export function shouldForwardRemoteKey({ keyboardCaptured, insideTerminal, editable }) {
+  return keyboardCaptured && !insideTerminal && !editable;
+}
+
 export function terminalDimensions({ width, height, horizontalPadding, verticalPadding, cellWidth, cellHeight }) {
   const cols = Math.max(2, Math.floor((width - horizontalPadding) / cellWidth));
   const rows = Math.max(2, Math.floor((height - verticalPadding) / cellHeight));
