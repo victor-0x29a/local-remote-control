@@ -56,7 +56,10 @@ class PtySession:
     @classmethod
     async def start(cls, shell: str, environment: dict[str, str]) -> "PtySession":
         master_fd, slave_fd = pty.openpty()
-        allowed = {"HOME", "USER", "LOGNAME", "PATH", "SHELL", "TERM", "LANG", "DISPLAY", "XAUTHORITY"}
+        allowed = {
+            "HOME", "USER", "LOGNAME", "PATH", "SHELL", "TERM", "LANG", "DISPLAY", "XAUTHORITY",
+            "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS",
+        }
         child_environment = {key: value for key, value in environment.items() if key in allowed}
         child_environment.setdefault("TERM", "xterm-256color")
         try:
