@@ -1,0 +1,22 @@
+[Unit]
+Description=Local Remote Control for the graphical Ubuntu session
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+ExecStartPre=/bin/sh -c 'for n in $(seq 1 30); do xdotool getdisplaygeometry >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1'
+ExecStart=%h/.local/share/local-remote-control/venv/bin/local-remote-control --config %h/.config/local-remote-control/config.env
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/local-remote-control
+LockPersonality=true
+
+[Install]
+WantedBy=graphical-session.target
