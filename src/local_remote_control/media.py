@@ -25,6 +25,17 @@ class Encoder:
     hardware: bool
 
 
+def _pipeline_description(encoder: Encoder, display: str, fps: int) -> str:
+    return (
+        f"ximagesrc display-name={display} use-damage=true show-pointer=true ! "
+        f"video/x-raw,framerate={fps}/1 ! videoconvert ! video/x-raw,format=I420 ! "
+        "queue max-size-buffers=1 leaky=downstream ! "
+        f"{encoder.pipeline_fragment} ! h264parse config-interval=-1 ! "
+        "rtph264pay config-interval=-1 pt=96 ! application/x-rtp,media=video,encoding-name=H264,payload=96 ! "
+        "webrtcbin name=sendrecv bundle-policy=max-bundle"
+    )
+
+
 def select_encoder(available: set[str], bitrate_kbps: int = 8_000, fps: int = 30) -> Encoder:
     if not 250 <= bitrate_kbps <= 50_000 or not 10 <= fps <= 60:
         raise ValueError("media settings are out of range")
@@ -90,14 +101,7 @@ class WebRtcDesktop:
         except (ImportError, ValueError) as error:
             raise MediaUnavailable("GStreamer WebRTC bindings are unavailable") from error
         Gst.init(None)
-        description = (
-            f"ximagesrc display-name={self._display} use-damage=true show-pointer=true ! "
-            f"video/x-raw,framerate={self._fps}/1 ! videoconvert ! "
-            "queue max-size-buffers=1 leaky=downstream ! "
-            f"{self.encoder.pipeline_fragment} ! h264parse config-interval=-1 ! "
-            "rtph264pay config-interval=-1 pt=96 ! application/x-rtp,media=video,encoding-name=H264,payload=96 ! "
-            "webrtcbin name=sendrecv bundle-policy=max-bundle"
-        )
+        description = _pipeline_description(self.encoder, self._display, self._fps)
         self._pipeline = Gst.parse_launch(description)
         self._webrtc = self._pipeline.get_by_name("sendrecv")
         self._webrtc.connect("on-negotiation-needed", self._create_offer)
