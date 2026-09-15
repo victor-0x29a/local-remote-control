@@ -94,6 +94,10 @@ O limite padrão é 1 MiB de texto por atualização.
 
 Clique em **Terminal** na barra superior. O shell é aberto com exatamente o mesmo usuário da sessão gráfica automática do host. Portanto, ele consegue ler, alterar e apagar os arquivos desse usuário. A senha da aplicação protege tanto a tela quanto o terminal.
 
+Selecione texto com o mouse e use **Copiar** ou `Ctrl+Shift+C`. Para enviar texto ao shell, use **Colar** ou `Ctrl+Shift+V`; `Ctrl+C` continua disponível para interromper o comando em execução. **Limpar** apaga apenas a visualização atual e **Expandir** alterna o painel para tela inteira.
+
+O terminal ajusta automaticamente suas linhas e colunas ao painel. A roda do mouse percorre o histórico interno, que armazena até 10 mil linhas, sem rolar a página inteira.
+
 Fechar o painel apenas oculta o terminal. Desconectar encerra a sessão PTY e libera o controle para outra conexão.
 
 ## Gerenciar o serviço
@@ -118,13 +122,13 @@ Execute:
 ./scripts/diagnose.sh
 ```
 
-O relatório mostra sessão gráfica, URL, porta, estado do serviço e encoders H.264 encontrados, sem imprimir hash de senha ou chave TLS.
+O relatório mostra sessão gráfica, URL, porta, estado do serviço, componentes WebRTC e encoders H.264 encontrados, sem imprimir hash de senha ou chave TLS.
 
 Problemas comuns:
 
 - **A página não abre:** confirme o IP mostrado por `hostname -I`, verifique `systemctl --user status local-remote-control` e teste se host e cliente estão na mesma rede.
 - **Serviço falha após ligar:** veja `journalctl --user -u local-remote-control -b`; confirme que o login automático chegou à área de trabalho.
-- **Sem vídeo:** execute `gst-inspect-1.0 x264enc` e confirme que a sessão mostra `x11` em `echo "$XDG_SESSION_TYPE"`.
+- **Sem vídeo:** confirme que `webrtcbin`, `nicesrc` e `nicesink` aparecem como disponíveis em `./scripts/diagnose.sh`, além de verificar se `echo "$XDG_SESSION_TYPE"` mostra `x11`.
 - **Mouse ou teclado não responde:** rode `DISPLAY=:0 xdotool getdisplaygeometry` no host e verifique se o comando consegue acessar a tela.
 - **Certificado mudou:** isso ocorre ao reinstalar; confirme novamente o IP antes de aceitar a nova exceção.
 - **Mensagem de sessão ocupada:** feche a aba controladora anterior ou aguarde cerca de 15 segundos para o lease expirar.
@@ -162,7 +166,7 @@ sudo diff -u /etc/gdm3/custom.conf /etc/gdm3/custom.conf.local-remote-control.ba
 python3 -m venv .venv
 .venv/bin/pip install -e '.[test]'
 .venv/bin/pytest -q
-node --test tests/client_protocol.test.mjs
+node --test tests/*.test.mjs
 bash -n scripts/*.sh
 ```
 
