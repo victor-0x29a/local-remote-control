@@ -12,6 +12,16 @@ test('maps only terminal clipboard shortcuts', async () => {
 });
 
 
+test('keeps editable and terminal keystrokes on the client device', async () => {
+  const { shouldForwardRemoteKey } = await import('../src/local_remote_control/static/terminal-ui.js');
+
+  assert.equal(shouldForwardRemoteKey({ keyboardCaptured: true, insideTerminal: false, editable: false }), true);
+  assert.equal(shouldForwardRemoteKey({ keyboardCaptured: true, insideTerminal: true, editable: false }), false);
+  assert.equal(shouldForwardRemoteKey({ keyboardCaptured: true, insideTerminal: false, editable: true }), false);
+  assert.equal(shouldForwardRemoteKey({ keyboardCaptured: false, insideTerminal: false, editable: false }), false);
+});
+
+
 test('calculates terminal rows and columns from usable panel space', async () => {
   const { terminalDimensions } = await import('../src/local_remote_control/static/terminal-ui.js');
 
