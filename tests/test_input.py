@@ -28,3 +28,14 @@ async def test_scales_pointer_and_translates_controls() -> None:
         ("xdotool", "keydown", "ctrl+a"),
     ]
     assert pasted == ["hello; $(unsafe)"]
+
+
+async def test_waits_for_async_clipboard_paste_before_returning() -> None:
+    order: list[str] = []
+
+    async def paste(text: str) -> None:
+        order.append(text)
+
+    adapter = InputAdapter(RecordingRunner(), lambda: (1, 1), paste)
+    await adapter.apply(TextInput("clipboard"))
+    assert order == ["clipboard"]
