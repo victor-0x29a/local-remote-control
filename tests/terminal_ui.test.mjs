@@ -24,3 +24,42 @@ test('calculates terminal rows and columns from usable panel space', async () =>
     { cols: 2, rows: 2 },
   );
 });
+
+
+test('copies only a non-empty terminal selection', async () => {
+  const { copyTerminalSelection } = await import('../src/local_remote_control/static/terminal-ui.js');
+  const clipboard = new MemoryClipboard();
+
+  assert.equal(await copyTerminalSelection({ getSelection: () => '' }, clipboard), false);
+  assert.equal(await copyTerminalSelection({ getSelection: () => 'linha selecionada' }, clipboard), true);
+  assert.equal(clipboard.text, 'linha selecionada');
+});
+
+
+test('pastes clipboard text through the terminal paste API', async () => {
+  const { pasteIntoTerminal } = await import('../src/local_remote_control/static/terminal-ui.js');
+  const clipboard = new MemoryClipboard('comando --seguro');
+  const pasted = [];
+
+  assert.equal(await pasteIntoTerminal({ paste: (text) => pasted.push(text) }, clipboard), true);
+  assert.deepEqual(pasted, ['comando --seguro']);
+
+  clipboard.text = '';
+  assert.equal(await pasteIntoTerminal({ paste: (text) => pasted.push(text) }, clipboard), false);
+  assert.deepEqual(pasted, ['comando --seguro']);
+});
+
+
+class MemoryClipboard {
+  constructor(text = '') {
+    this.text = text;
+  }
+
+  async readText() {
+    return this.text;
+  }
+
+  async writeText(text) {
+    this.text = text;
+  }
+}
