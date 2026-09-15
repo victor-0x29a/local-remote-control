@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import pytest
@@ -35,6 +36,7 @@ async def test_pty_preserves_the_desktop_session_bus_environment(tmp_path) -> No
         },
     )
 
+    await asyncio.sleep(0.05)
     output = b"".join([chunk async for chunk in session.read_chunks()]).decode()
     await session.close()
 
