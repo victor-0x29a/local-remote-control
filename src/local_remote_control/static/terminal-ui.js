@@ -11,8 +11,8 @@ export function shouldForwardRemoteKey({ keyboardCaptured, insideTerminal, edita
 }
 
 export function terminalDimensions({ width, height, horizontalPadding, verticalPadding, cellWidth, cellHeight }) {
-  const cols = Math.max(2, Math.floor((width - horizontalPadding) / cellWidth));
-  const rows = Math.max(2, Math.floor((height - verticalPadding) / cellHeight));
+  const cols = Math.min(500, Math.max(2, Math.floor((width - horizontalPadding) / cellWidth)));
+  const rows = Math.min(300, Math.max(2, Math.floor((height - verticalPadding) / cellHeight)));
   return { cols, rows };
 }
 
