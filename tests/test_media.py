@@ -143,6 +143,21 @@ def test_pipeline_teardown_disconnects_handlers_and_bus_watch() -> None:
     assert desktop._pipeline is desktop._webrtc is desktop._bus is None
 
 
+def test_stale_browser_answer_and_ice_are_ignored() -> None:
+    desktop = media.WebRtcDesktop(
+        select_encoder({"x264enc"}),
+        on_offer=lambda *_: None,
+        on_ice=lambda *_: None,
+        on_error=lambda _: None,
+    )
+    desktop._active = True
+    desktop._generation = 9
+    desktop._webrtc = UnexpectedSignalSource()
+
+    assert desktop._set_remote_answer_on_context("v=0", 8) is False
+    assert desktop._add_ice_on_context("candidate", 0, 8) is False
+
+
 class BorrowingPromise:
     def get_reply(self):
         return OwningReply()
@@ -229,6 +244,11 @@ class FakeSignalSource:
 
     def disconnect(self, handler: int) -> None:
         self.disconnected.append(handler)
+
+
+class UnexpectedSignalSource:
+    def emit(self, *_):
+        raise AssertionError("stale browser signaling must be ignored")
 
 
 class FakeBus(FakeSignalSource):
