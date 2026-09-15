@@ -41,6 +41,14 @@ class ControllerLease:
             self._last_seen = self._clock()
             return True
 
+    async def owns(self, handle_id: str, session_token: str) -> bool:
+        async with self._lock:
+            return bool(
+                self._active is not None
+                and self._active.id == handle_id
+                and self._active.session_token == session_token
+            )
+
     async def release(self, handle_id: str) -> None:
         async with self._lock:
             if self._active is not None and self._active.id == handle_id:
