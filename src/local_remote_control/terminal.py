@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import fcntl
 import json
 import os
@@ -86,11 +87,8 @@ class PtySession:
         fcntl.ioctl(self._master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
     async def read_chunks(self) -> AsyncIterator[bytes]:
-        while self._process.returncode is None:
-            try:
-                chunk = await asyncio.to_thread(os.read, self._master_fd, 16_384)
-            except OSError:
-                break
+        while True:
+            chunk = await _read_when_ready(self._master_fd)
             if not chunk:
                 break
             yield chunk
@@ -104,3 +102,26 @@ class PtySession:
                 os.killpg(self._process.pid, signal.SIGKILL)
                 await self._process.wait()
         os.close(self._master_fd)
+
+
+async def _read_when_ready(file_descriptor: int) -> bytes:
+    loop = asyncio.get_running_loop()
+    ready = loop.create_future()
+
+    def read_available() -> None:
+        loop.remove_reader(file_descriptor)
+        if ready.done():
+            return
+        try:
+            ready.set_result(os.read(file_descriptor, 16_384))
+        except OSError as error:
+            if error.errno == errno.EIO:
+                ready.set_result(b"")
+            else:
+                ready.set_exception(error)
+
+    loop.add_reader(file_descriptor, read_available)
+    try:
+        return await ready
+    finally:
+        loop.remove_reader(file_descriptor)
