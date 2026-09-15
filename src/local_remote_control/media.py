@@ -148,8 +148,13 @@ class WebRtcDesktop:
         self._fallback_used = False
         self._display = display
         self._fps = fps
+        self._active = False
+        self._generation = 0
+        self._gst = None
         self._pipeline = None
         self._webrtc = None
+        self._bus = None
+        self._signal_handlers = []
 
     def start(self) -> None:
         try:
@@ -161,54 +166,154 @@ class WebRtcDesktop:
             raise MediaUnavailable("GStreamer WebRTC bindings are unavailable") from error
         Gst.init(None)
         _glib_main_context.ensure(GLib)
+        self._gst = Gst
+        _glib_main_context.call(self._start_on_context)
+
+    def _start_on_context(self) -> None:
+        if self._active:
+            return
+        self._active = True
+        self._generation += 1
+        try:
+            self._start_pipeline_on_context()
+        except Exception as error:
+            if not self._switch_to_fallback_on_context(str(error)):
+                self._active = False
+                self._generation += 1
+                self._teardown_on_context()
+                raise
+
+    def _start_pipeline_on_context(self) -> None:
+        Gst = self._gst
         description = _pipeline_description(self.encoder, self._display, self._fps)
         self._pipeline = Gst.parse_launch(description)
         self._webrtc = self._pipeline.get_by_name("sendrecv")
-        self._webrtc.connect("on-negotiation-needed", self._create_offer)
-        self._webrtc.connect("on-ice-candidate", lambda _, index, candidate: self._on_ice(index, candidate))
+        if self._webrtc is None:
+            raise MediaUnavailable("WebRTC pipeline element is unavailable")
+        generation = self._generation
+        negotiation_handler = self._webrtc.connect(
+            "on-negotiation-needed", lambda element: self._create_offer(element, generation)
+        )
+        ice_handler = self._webrtc.connect(
+            "on-ice-candidate",
+            lambda _, index, candidate: self._emit_ice(index, candidate, generation),
+        )
+        self._signal_handlers.extend(
+            [(self._webrtc, negotiation_handler), (self._webrtc, ice_handler)]
+        )
         bus = self._pipeline.get_bus()
         bus.add_signal_watch()
-        bus.connect("message::error", self._handle_error)
-        self._pipeline.set_state(Gst.State.PLAYING)
+        error_handler = bus.connect(
+            "message::error",
+            lambda source, message: self._handle_error_on_context(source, message, generation),
+        )
+        self._bus = bus
+        self._signal_handlers.append((bus, error_handler))
+        state = self._pipeline.set_state(Gst.State.PLAYING)
+        if state == Gst.StateChangeReturn.FAILURE:
+            raise MediaUnavailable(f"encoder {self.encoder.name} failed to start")
 
-    def _handle_error(self, _, message) -> None:
-        error = message.parse_error()[0].message
-        if self._fallback is not None and not self._fallback_used:
-            self._fallback_used = True
-            failed = self.encoder.name
-            self.stop()
-            self.encoder = self._fallback
-            self._on_error(f"encoder {failed} falhou; alternando para {self.encoder.name}")
-            self.start()
+    def _handle_error_on_context(self, _, message, generation: int) -> None:
+        if not self._active or generation != self._generation:
             return
+        error = message.parse_error()[0].message
+        try:
+            if self._switch_to_fallback_on_context(error):
+                return
+        except Exception as fallback_error:
+            error = str(fallback_error)
+        self._active = False
+        self._generation += 1
+        self._teardown_on_context()
         self._on_error(error)
 
-    def _create_offer(self, element) -> None:
-        from gi.repository import Gst, GstWebRTC
-        promise = Gst.Promise.new_with_change_func(self._offer_created, element, None)
-        element.emit("create-offer", None, promise)
+    def _switch_to_fallback_on_context(self, _error: str) -> bool:
+        if self._fallback is None or self._fallback_used:
+            return False
+        self._fallback_used = True
+        failed = self.encoder.name
+        self._generation += 1
+        self._teardown_on_context()
+        self.encoder = self._fallback
+        self._on_error(f"encoder {failed} falhou; alternando para {self.encoder.name}")
+        self._start_pipeline_on_context()
+        return True
 
-    def _offer_created(self, promise, element, _) -> None:
-        from gi.repository import Gst, GstWebRTC
-        _complete_offer(promise, element, Gst.Promise.new(), self._on_offer)
+    def _emit_ice(self, index: int, candidate: str, generation: int) -> None:
+        def emit() -> None:
+            if self._active and generation == self._generation:
+                self._on_ice(index, candidate)
+
+        _glib_main_context.call(emit)
+
+    def _create_offer(self, element, generation: int) -> None:
+        def create() -> None:
+            if not self._active or generation != self._generation:
+                return
+            promise = self._gst.Promise.new_with_change_func(
+                self._offer_created, (element, generation), None
+            )
+            element.emit("create-offer", None, promise)
+
+        _glib_main_context.call(create)
+
+    def _offer_created(self, promise, context, _) -> None:
+        element, generation = context
+
+        def complete() -> None:
+            if self._active and generation == self._generation:
+                _complete_offer(promise, element, self._gst.Promise.new(), self._on_offer)
+
+        _glib_main_context.call(complete)
 
     def set_remote_answer(self, sdp: str) -> None:
-        if self._webrtc is None:
-            raise MediaUnavailable("media pipeline has not started")
-        from gi.repository import Gst, GstSdp, GstWebRTC
-        result, message = GstSdp.SDPMessage.new()
-        if GstSdp.sdp_message_parse_buffer(sdp.encode(), message) != GstSdp.SDPResult.OK:
-            raise MediaUnavailable("invalid SDP answer")
-        answer = GstWebRTC.WebRTCSessionDescription.new(GstWebRTC.WebRTCSDPType.ANSWER, message)
-        self._webrtc.emit("set-remote-description", answer, Gst.Promise.new())
+        def apply() -> None:
+            if not self._active or self._webrtc is None:
+                raise MediaUnavailable("media pipeline has not started")
+            from gi.repository import GstSdp, GstWebRTC
+            _, message = GstSdp.SDPMessage.new()
+            if GstSdp.sdp_message_parse_buffer(sdp.encode(), message) != GstSdp.SDPResult.OK:
+                raise MediaUnavailable("invalid SDP answer")
+            answer = GstWebRTC.WebRTCSessionDescription.new(
+                GstWebRTC.WebRTCSDPType.ANSWER, message
+            )
+            self._webrtc.emit("set-remote-description", answer, self._gst.Promise.new())
+
+        _glib_main_context.call(apply)
 
     def add_ice(self, candidate: str, mline: int) -> None:
-        if self._webrtc is None:
-            raise MediaUnavailable("media pipeline has not started")
-        self._webrtc.emit("add-ice-candidate", mline, candidate)
+        def apply() -> None:
+            if not self._active or self._webrtc is None:
+                raise MediaUnavailable("media pipeline has not started")
+            self._webrtc.emit("add-ice-candidate", mline, candidate)
+
+        _glib_main_context.call(apply)
 
     def stop(self) -> None:
-        if self._pipeline is not None:
-            from gi.repository import Gst
-            self._pipeline.set_state(Gst.State.NULL)
-        self._pipeline = self._webrtc = None
+        if self._gst is None:
+            self._active = False
+            return
+        _glib_main_context.call(self._stop_on_context)
+
+    def _stop_on_context(self) -> None:
+        self._active = False
+        self._generation += 1
+        self._teardown_on_context()
+
+    def _teardown_on_context(self) -> None:
+        pipeline = self._pipeline
+        bus = self._bus
+        handlers = self._signal_handlers
+        self._pipeline = None
+        self._webrtc = None
+        self._bus = None
+        self._signal_handlers = []
+        for source, handler in handlers:
+            try:
+                source.disconnect(handler)
+            except (TypeError, ValueError):
+                pass
+        if bus is not None:
+            bus.remove_signal_watch()
+        if pipeline is not None:
+            pipeline.set_state(self._gst.State.NULL)
