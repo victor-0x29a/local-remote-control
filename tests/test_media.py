@@ -37,11 +37,12 @@ def test_offer_reply_stays_alive_until_its_borrowed_sdp_is_sent() -> None:
     assert sent == ["v=0\r\n"]
 
 
-def test_pipeline_converts_x11_frames_to_encoder_safe_i420() -> None:
-    description = media._pipeline_description(select_encoder({"x264enc"}), ":0", 30)
+@pytest.mark.parametrize("encoder_name", ["nvh264enc", "vah264enc", "vaapih264enc", "x264enc"])
+def test_pipeline_converts_x11_frames_to_common_encoder_format(encoder_name: str) -> None:
+    description = media._pipeline_description(select_encoder({encoder_name}), ":0", 30)
 
-    assert "videoconvert ! video/x-raw,format=I420 !" in description
-    assert "x264enc tune=zerolatency" in description
+    assert "videoconvert ! video/x-raw,format=NV12 !" in description
+    assert encoder_name in description
 
 
 def test_glib_main_context_starts_one_daemon_thread() -> None:
