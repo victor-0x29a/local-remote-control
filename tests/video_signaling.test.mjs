@@ -7,10 +7,11 @@ import { VideoNegotiator } from '../src/local_remote_control/static/video-signal
 test('replaces the peer and ignores stale negotiation signaling', async () => {
   const peers = [];
   const sent = [];
+  const tracks = [];
   const negotiator = new VideoNegotiator({
     createPeer: () => peers.push(new FakePeer()) && peers.at(-1),
     send: (message) => sent.push(message),
-    onTrack: () => {},
+    onTrack: (event) => tracks.push(event.streams[0]),
   });
 
   await negotiator.handle({ type: 'offer', negotiation: 1, sdp: 'offer-one' });
@@ -19,10 +20,13 @@ test('replaces the peer and ignores stale negotiation signaling', async () => {
   await negotiator.handle({ type: 'ice', negotiation: 2, mline: 0, candidate: 'current' });
   peers[0].emitIce('late-local-candidate');
   peers[1].emitIce('current-local-candidate');
+  peers[0].emitTrack('stale-track');
+  peers[1].emitTrack('current-track');
 
   assert.equal(peers[0].closed, true);
   assert.deepEqual(peers[0].candidates, []);
   assert.deepEqual(peers[1].candidates, [{ candidate: 'current', sdpMLineIndex: 0 }]);
+  assert.deepEqual(tracks, ['current-track']);
   assert.deepEqual(sent, [
     { type: 'answer', negotiation: 1, sdp: 'answer:offer-one' },
     { type: 'answer', negotiation: 2, sdp: 'answer:offer-two' },
@@ -66,5 +70,9 @@ class FakePeer {
     this.listeners.get('icecandidate')?.({
       candidate: { candidate, sdpMLineIndex: 0 },
     });
+  }
+
+  emitTrack(track) {
+    this.listeners.get('track')?.({ streams: [track] });
   }
 }
