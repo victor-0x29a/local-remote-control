@@ -31,3 +31,11 @@ async def test_heartbeat_refreshes_and_stale_lease_is_reaped() -> None:
     now[0] = 30.0
     assert await lease.reap()
     assert await lease.acquire("two") is not None
+
+
+async def test_validates_lease_ownership_without_exposing_session() -> None:
+    lease = ControllerLease(clock=lambda: 1.0)
+    owner = await lease.acquire("private-session")
+    assert owner is not None
+    assert await lease.owns(owner.id, "private-session")
+    assert not await lease.owns(owner.id, "different-session")
