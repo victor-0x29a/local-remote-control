@@ -30,3 +30,18 @@ def test_installer_declares_the_web_rtc_ice_transport_dependency() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "gstreamer1.0-nice" in result.stdout.splitlines()
+
+
+def test_diagnostics_reports_each_web_rtc_transport_component() -> None:
+    result = subprocess.run(
+        ["bash", "scripts/diagnose.sh"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "webrtcbin:" in result.stdout
+    assert "nicesrc:" in result.stdout
+    assert "nicesink:" in result.stdout
