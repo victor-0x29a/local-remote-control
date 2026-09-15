@@ -163,8 +163,17 @@ async def _signal_socket(request: web.Request) -> web.WebSocketResponse:
         loop.call_soon_threadsafe(asyncio.create_task, socket.send_json(payload))
 
     media = deps.media_factory(
-        on_offer=lambda sdp: send({"type": "offer", "sdp": sdp}),
-        on_ice=lambda mline, candidate: send({"type": "ice", "mline": mline, "candidate": candidate}),
+        on_offer=lambda negotiation, sdp: send(
+            {"type": "offer", "negotiation": negotiation, "sdp": sdp}
+        ),
+        on_ice=lambda negotiation, mline, candidate: send(
+            {
+                "type": "ice",
+                "negotiation": negotiation,
+                "mline": mline,
+                "candidate": candidate,
+            }
+        ),
         on_error=lambda error: send({"type": "error", "message": error}),
     )
     try:
@@ -173,10 +182,13 @@ async def _signal_socket(request: web.Request) -> web.WebSocketResponse:
             if message.type != WSMsgType.TEXT:
                 continue
             value = json.loads(message.data)
+            negotiation = value.get("negotiation")
+            if not isinstance(negotiation, int) or isinstance(negotiation, bool):
+                continue
             if value.get("type") == "answer" and isinstance(value.get("sdp"), str):
-                media.set_remote_answer(value["sdp"])
+                media.set_remote_answer(value["sdp"], negotiation)
             elif value.get("type") == "ice" and isinstance(value.get("candidate"), str):
-                media.add_ice(value["candidate"], int(value.get("mline", 0)))
+                media.add_ice(value["candidate"], int(value.get("mline", 0)), negotiation)
     finally:
         media.stop()
     return socket

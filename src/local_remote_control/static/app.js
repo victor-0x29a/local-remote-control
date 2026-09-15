@@ -1,5 +1,6 @@
 import { keyMessage, pointerMessage, socketUrl } from './protocol.js';
 import { copyTerminalSelection, pasteIntoTerminal, shouldForwardRemoteKey, terminalDimensions, terminalShortcut } from './terminal-ui.js';
+import { VideoNegotiator } from './video-signaling.js';
 
 const loginView = document.querySelector('#login-view');
 const workspace = document.querySelector('#workspace');
@@ -20,7 +21,7 @@ let controlSocket;
 let signalSocket;
 let terminalSocket;
 let clipboardSocket;
-let peer;
+let videoNegotiator;
 let terminal;
 let terminalResizeObserver;
 let keyboardCaptured = false;
@@ -71,28 +72,24 @@ async function connect() {
 }
 
 async function connectVideo() {
-  peer = new RTCPeerConnection({ iceServers: [], bundlePolicy: 'max-bundle' });
-  peer.addEventListener('track', (event) => {
-    video.srcObject = event.streams[0];
-    emptyState.hidden = true;
-  });
   signalSocket = new WebSocket(socketUrl('/ws/signal', lease));
-  signalSocket.addEventListener('message', async (event) => {
-    const message = JSON.parse(event.data);
-    if (message.type === 'offer') {
-      await peer.setRemoteDescription({ type: 'offer', sdp: message.sdp });
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-      signalSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp }));
-    } else if (message.type === 'ice') {
-      await peer.addIceCandidate({ candidate: message.candidate, sdpMLineIndex: message.mline });
-    } else if (message.type === 'error') {
-      setStatus(`Falha de vídeo: ${message.message}`, true);
-    }
+  videoNegotiator = new VideoNegotiator({
+    createPeer: () => new RTCPeerConnection({ iceServers: [], bundlePolicy: 'max-bundle' }),
+    send: (message) => {
+      if (signalSocket.readyState === WebSocket.OPEN) signalSocket.send(JSON.stringify(message));
+    },
+    onTrack: (event) => {
+      video.srcObject = event.streams[0];
+      emptyState.hidden = true;
+    },
+    onError: (error) => setStatus(`Falha de vídeo: ${error.message || error}`, true),
   });
-  peer.addEventListener('icecandidate', (event) => {
-    if (event.candidate && signalSocket.readyState === WebSocket.OPEN) {
-      signalSocket.send(JSON.stringify({ type: 'ice', candidate: event.candidate.candidate, mline: event.candidate.sdpMLineIndex }));
+  signalSocket.addEventListener('message', (event) => {
+    const message = JSON.parse(event.data);
+    if (message.type === 'error') {
+      setStatus(`Falha de vídeo: ${message.message}`, true);
+    } else {
+      videoNegotiator.handle(message);
     }
   });
 }
@@ -297,7 +294,7 @@ document.querySelector('#disconnect-button').addEventListener('click', disconnec
 async function disconnect() {
   try { await api(`/api/lease/${encodeURIComponent(lease)}`, { method: 'DELETE' }); } catch { /* best effort */ }
   [controlSocket, signalSocket, terminalSocket, clipboardSocket].forEach((socket) => socket?.close());
-  peer?.close();
+  videoNegotiator?.close();
   location.reload();
 }
 

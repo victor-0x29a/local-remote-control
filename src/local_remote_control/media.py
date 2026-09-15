@@ -132,8 +132,8 @@ class WebRtcDesktop:
     def __init__(
         self,
         encoder: Encoder,
-        on_offer: Callable[[str], None],
-        on_ice: Callable[[int, str], None],
+        on_offer: Callable[[int, str], None],
+        on_ice: Callable[[int, int, str], None],
         on_error: Callable[[str], None],
         *,
         fallback: Encoder | None = None,
@@ -242,7 +242,7 @@ class WebRtcDesktop:
     def _emit_ice(self, index: int, candidate: str, generation: int) -> None:
         def emit() -> None:
             if self._active and generation == self._generation:
-                self._on_ice(index, candidate)
+                self._on_ice(generation, index, candidate)
 
         _glib_main_context.call(emit)
 
@@ -262,32 +262,47 @@ class WebRtcDesktop:
 
         def complete() -> None:
             if self._active and generation == self._generation:
-                _complete_offer(promise, element, self._gst.Promise.new(), self._on_offer)
+                _complete_offer(
+                    promise,
+                    element,
+                    self._gst.Promise.new(),
+                    lambda sdp: self._on_offer(generation, sdp),
+                )
 
         _glib_main_context.call(complete)
 
-    def set_remote_answer(self, sdp: str) -> None:
-        def apply() -> None:
-            if not self._active or self._webrtc is None:
-                raise MediaUnavailable("media pipeline has not started")
-            from gi.repository import GstSdp, GstWebRTC
-            _, message = GstSdp.SDPMessage.new()
-            if GstSdp.sdp_message_parse_buffer(sdp.encode(), message) != GstSdp.SDPResult.OK:
-                raise MediaUnavailable("invalid SDP answer")
-            answer = GstWebRTC.WebRTCSessionDescription.new(
-                GstWebRTC.WebRTCSDPType.ANSWER, message
-            )
-            self._webrtc.emit("set-remote-description", answer, self._gst.Promise.new())
+    def set_remote_answer(self, sdp: str, generation: int) -> bool:
+        return _glib_main_context.call(
+            lambda: self._set_remote_answer_on_context(sdp, generation)
+        )
 
-        _glib_main_context.call(apply)
+    def _set_remote_answer_on_context(self, sdp: str, generation: int) -> bool:
+        if not self._active or self._webrtc is None:
+            raise MediaUnavailable("media pipeline has not started")
+        if generation != self._generation:
+            return False
+        from gi.repository import GstSdp, GstWebRTC
+        _, message = GstSdp.SDPMessage.new()
+        if GstSdp.sdp_message_parse_buffer(sdp.encode(), message) != GstSdp.SDPResult.OK:
+            raise MediaUnavailable("invalid SDP answer")
+        answer = GstWebRTC.WebRTCSessionDescription.new(
+            GstWebRTC.WebRTCSDPType.ANSWER, message
+        )
+        self._webrtc.emit("set-remote-description", answer, self._gst.Promise.new())
+        return True
 
-    def add_ice(self, candidate: str, mline: int) -> None:
-        def apply() -> None:
-            if not self._active or self._webrtc is None:
-                raise MediaUnavailable("media pipeline has not started")
-            self._webrtc.emit("add-ice-candidate", mline, candidate)
+    def add_ice(self, candidate: str, mline: int, generation: int) -> bool:
+        return _glib_main_context.call(
+            lambda: self._add_ice_on_context(candidate, mline, generation)
+        )
 
-        _glib_main_context.call(apply)
+    def _add_ice_on_context(self, candidate: str, mline: int, generation: int) -> bool:
+        if not self._active or self._webrtc is None:
+            raise MediaUnavailable("media pipeline has not started")
+        if generation != self._generation:
+            return False
+        self._webrtc.emit("add-ice-candidate", mline, candidate)
+        return True
 
     def stop(self) -> None:
         if self._gst is None:
