@@ -39,10 +39,15 @@ def test_offer_reply_stays_alive_until_its_borrowed_sdp_is_sent() -> None:
 
 @pytest.mark.parametrize("encoder_name", ["nvh264enc", "vah264enc", "vaapih264enc", "x264enc"])
 def test_pipeline_converts_x11_frames_to_common_encoder_format(encoder_name: str) -> None:
-    description = media._pipeline_description(select_encoder({encoder_name}), ":0", 30)
+    encoder = select_encoder({encoder_name})
+    description = media._pipeline_description(encoder, ":0", 30)
 
     assert "videoconvert ! video/x-raw,format=NV12 !" in description
     assert encoder_name in description
+    assert (
+        f"{encoder.pipeline_fragment} ! video/x-h264,profile=constrained-baseline ! h264parse"
+        in description
+    )
 
 
 def test_glib_main_context_starts_one_daemon_thread() -> None:
