@@ -89,7 +89,8 @@ def _pipeline_description(encoder: Encoder, display: str, fps: int) -> str:
         f"ximagesrc display-name={display} use-damage=true show-pointer=true ! "
         f"video/x-raw,framerate={fps}/1 ! videoconvert ! video/x-raw,format=NV12 ! "
         "queue max-size-buffers=1 leaky=downstream ! "
-        f"{encoder.pipeline_fragment} ! h264parse config-interval=-1 ! "
+        f"{encoder.pipeline_fragment} ! video/x-h264,profile=constrained-baseline ! "
+        "h264parse config-interval=-1 ! "
         "rtph264pay config-interval=-1 pt=96 ! application/x-rtp,media=video,encoding-name=H264,payload=96 ! "
         "webrtcbin name=sendrecv bundle-policy=max-bundle"
     )
